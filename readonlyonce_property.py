@@ -66,6 +66,19 @@ class readonlyonce_property(object):
     >>> yet_another_dice = YetAnotherOneShotDice()
     >>> yet_another_rolls = [yet_another_dice.roll for _ in range(10)]
     >>> assert all([r == yet_another_rolls[0] for r in yet_another_rolls])
+
+    The MRO is respected.
+    >>> class Base(object):
+    ...     some_attr = 'base value'
+    ...     @readonlyonce_property
+    ...     def attr(self):
+    ...         return self.some_attr
+
+    >>> class Child(Base):
+    ...     some_attr = 'child value'
+
+    >>> assert Base().attr == 'base value'
+    >>> assert Child().attr == 'child value'
     '''
 
 
@@ -74,9 +87,11 @@ class readonlyonce_property(object):
         self.fget = fget
 
     def __get__(self, obj, objtype):
-        if not hasattr(obj, self.attr_name):
+        try:
+            return getattr(obj, self.attr_name)
+        except AttributeError:
             setattr(obj, self.attr_name, self.fget(obj))
-        return getattr(obj, self.attr_name)
+            return getattr(obj, self.attr_name)
 
 
 
