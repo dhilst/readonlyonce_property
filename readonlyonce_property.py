@@ -21,28 +21,62 @@ class readonlyonce_property(object):
     - The getter function is called only once.
     - No setter is supported.
 
+    The value is cached in the instance as _{attribute_name}. So if you
+    decorate `foo` method for example, the result value will be cached
+    in `self._foo` where `self` is the instance of the class which
+    has the decorated method.
+
+    Follow the doctest below for an example.
+
     >>> from random import randint
     >>> class OneShotDice(object):
     ...     @readonlyonce_property
     ...     def roll(self):
     ...         return randint(1, 6)
+
+    This creates a class which it's instances property `roll` is cached
+    by intance. Take a look:
+
     >>> dice = OneShotDice()
-    >>> rolls = [dice.roll for _ in range(0)]
+    >>> rolls = [dice.roll for _ in range(10)]
+
+    Beside being random, all the values in rolls list are the same.
     >>> assert all([roll == rolls[0] for roll in rolls])
 
-    The value is cached in the instance of this descriptor, in
-    the `val` attribute.
+    If we create another instance the method is called again.
+    >>> other_dice = OneShotDice()
+    >>> other_rolls = [other_dice.roll for _ in range(10)]
+    >>> assert all([roll == rolls[0] for roll in rolls])
+
+    There is 1/10 probability of dice and other_dice have the same value.
+    Let's test this.
+
+    >>> if other_rolls[0] == rolls[0]:
+    ...     # They are equal, you are lucky. So all the other values
+    ...     # are equal too.
+    ...     assert all([r == r_ for r in rolls for r_ in other_rolls])
+    ... else:
+    ...     # They differ, so all other values differ too.
+    ...     assert all([r != r_ for r in rolls for r_ in other_rolls])
+
+    Exteding works as expected because the field is cached in the instance.
+    >>> class YetAnotherOneShotDice(OneShotDice):
+    ...     pass
+    
+    >>> yet_another_dice = YetAnotherOneShotDice()
+    >>> yet_another_rolls = [yet_another_dice.roll for _ in range(10)]
+    >>> assert all([r == yet_another_rolls[0] for r in yet_another_rolls])
     '''
 
+
     def __init__(self, fget):
-        self.val = None
-        self.name = fget.__name__
+        self.attr_name = '_{}'.format(fget.__name__)
         self.fget = fget
 
     def __get__(self, obj, objtype):
-        if self.val is None:
-            self.val = self.fget(obj)
-        return self.val
+        if not hasattr(obj, self.attr_name):
+            setattr(obj, self.attr_name, self.fget(obj))
+        return getattr(obj, self.attr_name)
 
 
 
